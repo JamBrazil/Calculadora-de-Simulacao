@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Produtividade Logística</title>
+    <!-- 1. Carrega o Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Adiciona a fonte Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 3. Estilos customizados para o gráfico e para o tema -->
+    <style>
+        /* Define a fonte Inter como padrão */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Estilos para o gráfico de barras customizado */
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            width: 100%;
+            height: 300px; /* Altura do gráfico */
+            background-color: #f9fafb; /* bg-gray-50 */
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 1rem;
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+        }
+
+        .chart-bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 50%;
+        }
+
+        .chart-bar {
+            width: 60px; /* Largura da barra */
+            background-color: #FF6600; /* Cor primária */
+            border-radius: 0.375rem 0.375rem 0 0; /* rounded-t-md */
+            transition: height 0.5s ease-out;
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Cor da segunda barra */
+        .chart-bar.real {
+            background-color: #FF9933; /* Tom mais claro de laranja */
+        }
+
+        /* Rótulo de valor em cima da barra */
+        .chart-bar::before {
+            content: attr(data-value);
+            position: absolute;
+            top: -24px; /* Posição acima da barra */
+            font-weight: 600;
+            color: #374151; /* text-gray-700 */
+            font-size: 0.875rem; /* text-sm */
+        }
+
+        .chart-label {
+            margin-top: 0.5rem; /* mt-2 */
+            font-weight: 500;
+            color: #4b5563; /* text-gray-600 */
+            font-size: 0.875rem; /* text-sm */
+            text-align: center;
+        }
+
+        /* Cor de foco personalizada para os inputs */
+        input[type="number"]:focus {
+            border-color: #FF6600 !important;
+            box-shadow: 0 0 0 2px #FF660060 !important;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        
+        <!-- === Barra Lateral (Inputs) === -->
+        <!-- Cor de fundo bege claro simulando o tema Shopee -->
+        <aside class="w-full md:w-1/3 lg:w-1/4 p-6 bg-[#FFF5EE] text-gray-800 shadow-lg">
+            <!-- Cor do título laranja -->
+            <h2 class="text-2xl font-bold text-[#FF6600] mb-6">⚙️ Parâmetros de Entrada</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="meta_produtividade" class="block text-sm font-medium text-gray-700 mb-1">
+                        Meta de Produtividade (peças/hora)
+                    </label>
+                    <input type="number" id="meta_produtividade" min="1" value="100" step="1"
+                           class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    <p class="text-xs text-gray-500 mt-1">A produtividade ideal esperada (peças por hora).</p>
+                </div>
+                
+                <div>
+                    <label for="penalidade_escada" class="block text-sm font-medium text-gray-700 mb-1">
+                        Penalidade Escada (segundos)
+                    </label>
+                    <input type="number" id="penalidade_escada" min="0.0" value="10.0" step="0.1"
+                           class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    <p class="text-xs text-gray-500 mt-1">Tempo extra (em segundos) gasto com a penalidade 'Escada'.</p>
+                </div>
+                
+                <div>
+                    <label for="penalidade_binbox" class="block text-sm font-medium text-gray-700 mb-1">
+                        Penalidade Bin Box (segundos)
+                    </label>
+                    <input type="number" id="penalidade_binbox" min="0.0" value="5.0" step="0.1"
+                           class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    <p class="text-xs text-gray-500 mt-1">Tempo extra (em segundos) gasto com a penalidade 'Bin Box'.</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- === Conteúdo Principal (Resultados) === -->
+        <main class="flex-1 p-6 md:p-10">
+            <!-- Título Laranja -->
+            <h1 class="text-3xl font-bold text-[#FF6600] mb-2">📦 Calculadora de Ganho de Produtividade Logística</h1>
+            <p class="text-gray-600 mb-8">Use esta ferramenta para simular o impacto da otimização de processos (redução de penalidades) na produtividade de suas operações logísticas.</p>
+
+            <!-- Wrapper de resultados (para mostrar/esconder com base na validação) -->
+            <div id="results-wrapper">
+                
+                <!-- 1. Métricas -->
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">📊 Resultados da Simulação</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    
+                    <!-- Card: Tempo Ideal -->
+                    <div class="bg-white p-5 rounded-xl shadow-md border border-gray-200">
+                        <span class="text-sm font-medium text-gray-500">⏱️ Tempo Ideal por Peça</span>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="val_tempo_ideal">36.00 s</p>
+                        <p class="text-xs text-gray-400 mt-2">Tempo para atingir a meta.</p>
+                    </div>
+
+                    <!-- Card: Tempo Real -->
+                    <div class="bg-white p-5 rounded-xl shadow-md border border-gray-200">
+                        <span class="text-sm font-medium text-gray-500">⏳ Tempo Real com Penalidades</span>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="val_tempo_real">51.00 s</p>
+                        <p class="text-sm font-semibold text-red-500 mt-2" id="delta_tempo_real">+15.00 s (Penalidades)</p>
+                    </div>
+
+                    <!-- Card: Produtividade Real -->
+                    <div class="bg-white p-5 rounded-xl shadow-md border border-gray-200">
+                        <span class="text-sm font-medium text-gray-500">⚙️ Produtividade Real Obtida</span>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="val_prod_real">70.59 peças/h</p>
+                        <p class="text-sm font-semibold text-red-500 mt-2" id="delta_prod_real">-29.41 peças/h</p>
+                    </div>
+
+                    <!-- Card: Potencial de Ganho -->
+                    <div class="bg-white p-5 rounded-xl shadow-md border border-gray-200">
+                        <span class="text-sm font-medium text-gray-500">📈 Potencial de Ganho (%)</span>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="val_ganho_perc">41.67 %</p>
+                        <p class="text-sm font-semibold text-green-600 mt-2" id="delta_ganho_perc">Potencial de Otimização</p>
+                    </div>
+                </div>
+
+                <hr class="my-8">
+
+                <!-- 2. Gráfico -->
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Gráfico de Comparação de Produtividade</h2>
+                <div class="bg-white p-4 rounded-xl shadow-md border border-gray-200">
+                    <div class="chart-container">
+                        <!-- Barra: Meta -->
+                        <div class="chart-bar-group">
+                            <div id="bar_meta" class="chart-bar" style="height: 100%;" data-value="100.00"></div>
+                            <span class="chart-label">Meta (Ideal)</span>
+                        </div>
+                        <!-- Barra: Real -->
+                        <div class="chart-bar-group">
+                            <div id="bar_real" class="chart-bar real" style="height: 70.59%;" data-value="70.59"></div>
+                            <span class="chart-label">Real (Com Penalidades)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Detalhes -->
+                <h2 class="text-2xl font-semibold text-gray-800 mt-8 mb-4">Detalhes dos Tempos por Peça</h2>
+                <!-- Simulação do `st.info` -->
+                <div class="bg-blue-50 border-l-4 border-blue-400 text-blue-800 p-4 rounded-md shadow-sm">
+                    <ul class="list-disc list-inside space-y-1">
+                        <li id="detalhe_ideal"><strong>Tempo Ideal:</strong> 36.00 segundos.</li>
+                        <li id="detalhe_penalidades"><strong>Penalidades Totais:</strong> 15.00 segundos.</li>
+                        <li id="detalhe_real"><strong>Tempo Real:</strong> 51.00 segundos.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Mensagem de Aviso (escondida por padrão) -->
+            <div id="warning-message" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md shadow-sm" role="alert">
+                <p><strong>Aviso:</strong> Por favor, insira uma Meta de Produtividade válida (maior que zero) no painel lateral.</p>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- === JavaScript === -->
+    <script>
+        // Seleciona todos os elementos de input e output uma vez
+        const inputMeta = document.getElementById('meta_produtividade');
+        const inputEscada = document.getElementById('penalidade_escada');
+        const inputBinbox = document.getElementById('penalidade_binbox');
+
+        const valTempoIdeal = document.getElementById('val_tempo_ideal');
+        const valTempoReal = document.getElementById('val_tempo_real');
+        const deltaTempoReal = document.getElementById('delta_tempo_real');
+        
+        const valProdReal = document.getElementById('val_prod_real');
+        const deltaProdReal = document.getElementById('delta_prod_real');
+        
+        const valGanhoPerc = document.getElementById('val_ganho_perc');
+        const deltaGanhoPerc = document.getElementById('delta_ganho_perc');
+
+        const barMeta = document.getElementById('bar_meta');
+        const barReal = document.getElementById('bar_real');
+        
+        const detalheIdeal = document.getElementById('detalhe_ideal');
+        const detalhePenalidades = document.getElementById('detalhe_penalidades');
+        const detalheReal = document.getElementById('detalhe_real');
+
+        const resultsWrapper = document.getElementById('results-wrapper');
+        const warningMessage = document.getElementById('warning-message');
+
+        // Função principal para calcular e atualizar a UI
+        function calcularProdutividade() {
+            // 1. Obter valores dos inputs
+            const meta_produtividade = parseFloat(inputMeta.value) || 0;
+            const penalidade_escada = parseFloat(inputEscada.value) || 0;
+            const penalidade_binbox = parseFloat(inputBinbox.value) || 0;
+
+            // 2. Validação
+            if (meta_produtividade <= 0) {
+                resultsWrapper.classList.add('hidden');
+                warningMessage.classList.remove('hidden');
+                return;
+            } else {
+                resultsWrapper.classList.remove('hidden');
+                warningMessage.classList.add('hidden');
+            }
+
+            // 3. Cálculos
+            const tempo_ideal = 3600 / meta_produtividade;
+            const penalidades_totais = penalidade_escada + penalidade_binbox;
+            const tempo_real = tempo_ideal + penalidades_totais;
+            const produtividade_real = (tempo_real > 0) ? (3600 / tempo_real) : 0;
+            
+            let ganho_percentual = 0;
+            if (produtividade_real > 0) {
+                ganho_percentual = ((meta_produtividade - produtividade_real) / produtividade_real) * 100;
+            }
+
+            // 4. Atualizar Métricas (Resultados)
+            valTempoIdeal.textContent = `${tempo_ideal.toFixed(2)} s`;
+            
+            valTempoReal.textContent = `${tempo_real.toFixed(2)} s`;
+            deltaTempoReal.textContent = `+${penalidades_totais.toFixed(2)} s (Penalidades)`;
+            
+            valProdReal.textContent = `${produtividade_real.toFixed(2)} peças/h`;
+            const delta_prod = produtividade_real - meta_produtividade;
+            deltaProdReal.textContent = `${delta_prod.toFixed(2)} peças/h`;
+            
+            valGanhoPerc.textContent = `${ganho_percentual.toFixed(2)} %`;
+
+            // 5. Atualizar Cores dos Deltas
+            // Delta Produtividade Real
+            deltaProdReal.classList.toggle('text-red-500', delta_prod < 0);
+            deltaProdReal.classList.toggle('text-green-600', delta_prod >= 0);
+            
+            // Delta Potencial de Ganho
+            deltaGanhoPerc.classList.toggle('text-green-600', ganho_percentual >= 0);
+            deltaGanhoPerc.classList.toggle('text-red-500', ganho_percentual < 0);
+            deltaGanhoPerc.textContent = ganho_percentual >= 0 ? "Potencial de Otimização" : "Abaixo da Meta";
+
+            // 6. Atualizar Gráfico
+            const max_prod = Math.max(meta_produtividade, produtividade_real, 1); // Evita divisão por zero
+            const meta_height_perc = (meta_produtividade / max_prod) * 100;
+            const real_height_perc = (produtividade_real / max_prod) * 100;
+            
+            barMeta.style.height = `${meta_height_perc}%`;
+            barMeta.setAttribute('data-value', meta_produtividade.toFixed(2));
+            
+            barReal.style.height = `${real_height_perc}%`;
+            barReal.setAttribute('data-value', produtividade_real.toFixed(2));
+
+            // 7. Atualizar Detalhes
+            detalheIdeal.innerHTML = `<strong>Tempo Ideal:</strong> ${tempo_ideal.toFixed(2)} segundos.`;
+            detalhePenalidades.innerHTML = `<strong>Penalidades Totais:</strong> ${penalidades_totais.toFixed(2)} segundos.`;
+            detalheReal.innerHTML = `<strong>Tempo Real:</strong> ${tempo_real.toFixed(2)} segundos.`;
+        }
+
+        // Adiciona "event listeners" para recalcular em qualquer mudança
+        inputMeta.addEventListener('input', calcularProdutividade);
+        inputEscada.addEventListener('input', calcularProdutividade);
+        inputBinbox.addEventListener('input', calcularProdutividade);
+
+        // Calcula os valores iniciais ao carregar a página
+        document.addEventListener('DOMContentLoaded', calcularProdutividade);
+    </script>
+
+</body>
+</html>
